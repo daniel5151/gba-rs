@@ -6,7 +6,6 @@
     clippy::deprecated_cfg_attr,
     clippy::unreadable_literal, // TODO: fix these
     deprecated, // FIXME: bandaid to silence errors
-    invalid_value // FIXME: bandaid to silence errors
 )]
 #![warn(clippy::bad_bit_mask)] // TODO: remove this once warning is resolved
 
@@ -24,6 +23,7 @@ extern crate serde;
 extern crate serde_derive;
 extern crate zstd;
 
+extern crate arm7tdmi_rs;
 extern crate flame;
 
 use std::error::Error;

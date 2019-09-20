@@ -4,6 +4,8 @@ version = "0.1.0"
 authors = ["Sean Purcell <me@seanp.xyz>"]
 
 [dependencies]
+arm7tdmi-rs = { path = "../arm7tdmi-rs", features = ["serde"] }
+
 arraydeque = "0.4.5"
 byteorder = "^1.2.2"
 clap = "2"
