@@ -1,18 +1,31 @@
+#![allow(
+    clippy::cognitive_complexity, // instruction decode methods are large
+    clippy::many_single_char_names, // ...it's a CPU, what do you expect?
+    clippy::cast_lossless, // Register types _won't_ be changed in the future
+    clippy::identity_op, // there are times it makes the code line up better
+    clippy::deprecated_cfg_attr,
+    clippy::unreadable_literal, // TODO: fix these
+    deprecated, // FIXME: bandaid to silence errors
+    invalid_value // FIXME: bandaid to silence errors
+)]
+#![warn(clippy::bad_bit_mask)] // TODO: remove this once warning is resolved
+
 extern crate arraydeque;
 extern crate bincode;
 extern crate byteorder;
 extern crate clap;
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
 extern crate env_logger;
 extern crate memmap;
 extern crate sdl2;
 extern crate serde;
-#[macro_use] extern crate serde_derive;
+#[macro_use]
+extern crate serde_derive;
 extern crate zstd;
 
 extern crate flame;
 
-use std::default::Default;
 use std::error::Error;
 use std::fs::File;
 use std::path::Path;
@@ -35,11 +48,9 @@ fn main() {
     use GBAError::*;
     match run_emu() {
         Ok(_) => {}
-        Err(errcode) => {
-            match errcode {
-                RomLoadError(err) => println!("ROM failed to load: {:?}", err),
-            }
-        }
+        Err(errcode) => match errcode {
+            RomLoadError(err) => println!("ROM failed to load: {:?}", err),
+        },
     }
 }
 
@@ -55,12 +66,16 @@ fn run_emu() -> Result<()> {
         .version("0.1")
         .about("Bad GBA Emulator")
         .author("Sean Purcell")
-        .arg(Arg::with_name("bios").required(true).help(
-            "GBA bios rom to use",
-        ))
-        .arg(Arg::with_name("rom").required(true).help(
-            "ROM file to emulate",
-        ))
+        .arg(
+            Arg::with_name("bios")
+                .required(true)
+                .help("GBA bios rom to use"),
+        )
+        .arg(
+            Arg::with_name("rom")
+                .required(true)
+                .help("ROM file to emulate"),
+        )
         .arg(
             Arg::with_name("profile")
                 .short("p")
@@ -80,9 +95,7 @@ fn run_emu() -> Result<()> {
                 .value_name("bool")
                 .possible_values(&["true", "false"])
                 .default_value("true")
-                .help(
-                    "If true, limits the frame-rate to the GBA frame rate (~60fps)",
-                ),
+                .help("If true, limits the frame-rate to the GBA frame rate (~60fps)"),
         )
         .arg(
             Arg::with_name("breakpoints")
@@ -98,22 +111,33 @@ fn run_emu() -> Result<()> {
                 })
                 .help("A list of addresses to warn when the CPU hits"),
         )
-        .arg(Arg::with_name("step-frames").short("S").long("step").help(
-            "Step through the frames step by step with the F key",
-        ))
-        .arg(Arg::with_name("quiet").short("q").long("quiet").multiple(true).help(
-            "Reduces logging level by one from env settings (multiple allowed)",
-        ))
-        .arg(Arg::with_name("direct").short("d").long("direct").help(
-            "Boot directly to the ROM instead of booting the BIOS",
-        ))
-        .arg(Arg::with_name("save-file")
-             .short("s")
-             .long("save")
-             .required(false)
-             .takes_value(true)
-             .default_value("save")
-             .help("The save file prefix to save to"),
+        .arg(
+            Arg::with_name("step-frames")
+                .short("S")
+                .long("step")
+                .help("Step through the frames step by step with the F key"),
+        )
+        .arg(
+            Arg::with_name("quiet")
+                .short("q")
+                .long("quiet")
+                .multiple(true)
+                .help("Reduces logging level by one from env settings (multiple allowed)"),
+        )
+        .arg(
+            Arg::with_name("direct")
+                .short("d")
+                .long("direct")
+                .help("Boot directly to the ROM instead of booting the BIOS"),
+        )
+        .arg(
+            Arg::with_name("save-file")
+                .short("s")
+                .long("save")
+                .required(false)
+                .takes_value(true)
+                .default_value("save")
+                .help("The save file prefix to save to"),
         )
         .get_matches();
 
@@ -149,11 +173,10 @@ fn run_gba(app_m: &ArgMatches) -> Result<()> {
 
     let opts = gba::Options {
         fps_limit: app_m.value_of("fps-limit").unwrap() == "true",
-        breaks: breaks,
+        breaks,
         step_frames: app_m.is_present("step-frames"),
         direct_boot: app_m.is_present("direct"),
         save_file: app_m.value_of_os("save-file").unwrap().to_os_string(),
-        ..Default::default()
     };
 
     let mut gba = gba::Gba::new(rom, bios, opts);

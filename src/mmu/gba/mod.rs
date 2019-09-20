@@ -8,8 +8,8 @@ use rom::GameRom;
 
 use io::IoReg;
 
-use super::{Mmu, MemoryRead, MemoryUnit};
 use super::ram::Ram;
+use super::{MemoryRead, MemoryUnit, Mmu};
 
 mod bios;
 mod save;
@@ -35,10 +35,10 @@ enum MemoryRange {
 
 impl MemoryRange {
     #[inline]
-    fn bounds(&self) -> (u32, u32) {
+    fn bounds(self) -> (u32, u32) {
         use self::MemoryRange::*;
         #[cfg_attr(rustfmt, rustfmt_skip)]
-        match *self {
+        match self {
             Bios        => (0x00000000, 0x00004000),
             BoardWram   => (0x02000000, 0x02040000),
             ChipWram    => (0x03000000, 0x03008000),
@@ -53,9 +53,9 @@ impl MemoryRange {
         }
     }
 
-    pub fn convert_addr(&self, addr: u32) -> u32 {
+    pub fn convert_addr(self, addr: u32) -> u32 {
         use self::MemoryRange::*;
-        match *self {
+        match self {
             Bios => addr,
             BoardWram => addr & 0x3ffff, // mirroring
             ChipWram => addr & 0x7fff,
@@ -86,8 +86,8 @@ impl MemoryRange {
     }
 
     pub fn match_addr(addr: u32) -> MemoryRange {
-        use bit_util::extract;
         use self::MemoryRange::*;
+        use bit_util::extract;
         match extract(addr, 24, 4) {
             0x0 => Bios,
             0x1 => Unused,
@@ -124,7 +124,7 @@ pub struct Gba<'a> {
     pub ee: Eeprom<'a>,
 
     #[serde(skip)]
-    pub cpu: Shared<Cpu<Gba<'a>>>
+    pub cpu: Shared<Cpu<Gba<'a>>>,
 }
 
 impl<'a> Gba<'a> {
@@ -138,10 +138,10 @@ impl<'a> Gba<'a> {
             pram: Ram::new(1024),
             vram: Ram::new(128 * 1024),
             oam: Ram::new(1024),
-            rom: rom,
-            ee: ee,
+            rom,
+            ee,
             gram: Ram::new(64 * 1024),
-            io: io,
+            io,
             cpu: Default::default(),
         }
     }
@@ -151,7 +151,7 @@ impl<'a> Gba<'a> {
         self.bios.init(cpu);
     }
 
-    pub fn get_range(&self, addr: u32) -> Option<(u32, &Mmu)> {
+    pub fn get_range(&self, addr: u32) -> Option<(u32, &dyn Mmu)> {
         use self::MemoryRange::*;
         let range = MemoryRange::match_addr(addr);
         let naddr = range.convert_addr(addr);
@@ -170,7 +170,7 @@ impl<'a> Gba<'a> {
         }
     }
 
-    pub fn get_range_mut(&mut self, addr: u32) -> Option<(u32, &mut Mmu)> {
+    pub fn get_range_mut(&mut self, addr: u32) -> Option<(u32, &mut dyn Mmu)> {
         use self::MemoryRange::*;
         let range = MemoryRange::match_addr(addr);
         let naddr = range.convert_addr(addr);

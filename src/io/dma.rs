@@ -1,7 +1,7 @@
 use bit_util::{bit, extract};
 
-use mmu::{Mmu, MemoryUnit};
 use mmu::gba::Gba as GbaMmu;
+use mmu::{MemoryUnit, Mmu};
 use shared::Shared;
 
 use super::IoReg;
@@ -25,6 +25,7 @@ struct DmaCh {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
+#[allow(dead_code)]
 pub enum Trigger {
     HBlank,
     VBlank,
@@ -39,20 +40,16 @@ enum Register {
 
 fn addr_bits(reg: Register, ch: usize) -> u32 {
     match reg {
-        Register::Source => {
-            match ch {
-                0 => 27,
-                1 | 2 | 3 => 28,
-                _ => unreachable!(),
-            }
-        }
-        Register::Dest => {
-            match ch {
-                0 | 1 | 2 => 27,
-                3 => 28,
-                _ => unreachable!(),
-            }
-        }
+        Register::Source => match ch {
+            0 => 27,
+            1 | 2 | 3 => 28,
+            _ => unreachable!(),
+        },
+        Register::Dest => match ch {
+            0 | 1 | 2 => 27,
+            3 => 28,
+            _ => unreachable!(),
+        },
     }
 }
 
@@ -67,6 +64,7 @@ impl<'a> Dma<'a> {
 
         let reg = addr % 12;
         if reg == 0xA {
+            //
             if bit(old as u32, 15) == 0 && bit(val as u32, 15) == 1 {
                 self.refresh(channel, val, false);
                 if extract(val as u32, 12, 2) == 0 {

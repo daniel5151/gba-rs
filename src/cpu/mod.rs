@@ -6,21 +6,21 @@ use shared::Shared;
 
 use mmu::MemoryUnit;
 
-pub mod mode;
-pub mod exception;
-pub mod reg;
 mod arm;
+pub mod exception;
+mod mem;
+pub mod mode;
+pub mod reg;
 mod thumb;
 mod util;
-mod mem;
 
-use self::reg::*;
 use self::exception::Exception;
+use self::reg::*;
 
 #[derive(Serialize, Deserialize)]
 pub struct Cpu<T: MemoryUnit> {
     reg: RegFile,
-    #[serde(skip, default="Shared::empty")]
+    #[serde(skip, default = "Shared::empty")]
     mmu: Shared<T>,
     #[serde(skip)]
     brk: HashSet<u32>,
@@ -33,7 +33,7 @@ impl<T: MemoryUnit> Cpu<T> {
     {
         let mut cpu = Cpu {
             reg: Default::default(),
-            mmu: mmu,
+            mmu,
             brk: Default::default(),
         };
         cpu.init(regs);
@@ -50,15 +50,13 @@ impl<T: MemoryUnit> Cpu<T> {
     /// Initializes the registers to emulate booting through BIOS, to directly
     /// start a ROM
     pub fn init_direct(&mut self) {
-        self.init(
-            &[
-                (0, reg::PC, 0x8000000),
-                (0, reg::CPSR, 0x1f),
-                (0, reg::SP, 0x3007f00),
-                (2, reg::SP, 0x3007fa0),
-                (3, reg::SP, 0x3007fe0),
-            ],
-        );
+        self.init(&[
+            (0, reg::PC, 0x8000000),
+            (0, reg::CPSR, 0x1f),
+            (0, reg::SP, 0x3007f00),
+            (2, reg::SP, 0x3007fa0),
+            (3, reg::SP, 0x3007fe0),
+        ]);
     }
 
     fn init<'a, I>(&mut self, regs: I)
@@ -95,6 +93,7 @@ impl<T: MemoryUnit> Cpu<T> {
         }
     }
 
+    #[allow(clippy::trivially_copy_pass_by_ref)]
     pub fn exception(&mut self, exc: &Exception) {
         // this should already be pointing at the next instruction
         let new_mode = exc.mode_on_entry();

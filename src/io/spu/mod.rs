@@ -2,9 +2,8 @@ use std::default::Default;
 use std::sync::{Arc, Mutex};
 
 use arraydeque::{ArrayDeque, Wrapping};
-use sdl2::audio::{AudioCallback, AudioSpecDesired};
+use sdl2::audio::AudioCallback;
 
-use mmu::gba::Gba as GbaMmu;
 use shared::Shared;
 
 use super::IoReg;
@@ -20,6 +19,7 @@ pub const FREQ: i32 = 32768;
 type SoundDeque = ArrayDeque<[(f32, f32); SAMPLES * 16], Wrapping>;
 pub struct SoundBuf(Arc<Mutex<SoundDeque>>);
 
+#[allow(dead_code)]
 pub struct Spu<'a> {
     io: Shared<IoReg<'a>>,
 
@@ -31,7 +31,7 @@ pub struct Spu<'a> {
 impl<'a> Spu<'a> {
     pub fn new(io: Shared<IoReg<'a>>) -> Self {
         Self {
-            io: io,
+            io,
             buf: Default::default(),
             idx: 0,
         }
@@ -58,14 +58,14 @@ impl AudioCallback for SoundBuf {
         let mut buf = self.0.lock().unwrap();
         let mut missed = 0;
         warn!("Sound buffer length: {}", buf.len());
-        for i in 0..(out.len()/2) {
+        for i in 0..(out.len() / 2) {
             let (l, r) = match buf.pop_front() {
                 Some((l, r)) => (l, r),
                 None => {
                     //warn!("Sound sample not available when queried");
                     missed += 1;
                     (0.0, 0.0)
-                },
+                }
             };
             out[i * 2 + 0] = l * 0.5;
             out[i * 2 + 1] = r * 0.5;

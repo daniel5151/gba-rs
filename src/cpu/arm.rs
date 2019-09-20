@@ -1,9 +1,9 @@
 use bit_util::*;
 
-use super::*;
+use super::mode::Mode;
 use super::reg::*;
 use super::util::*;
-use super::mode::Mode;
+use super::*;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Instruction {
@@ -18,8 +18,8 @@ enum Instruction {
     MulLong,
     SingleXferI, // Single data transfer, immediate offset
     SingleXferR, // Single data transfer, register offset
-    HwSgnXferR, // Halfword and signed, register offset
-    HwSgnXferI, // Halfword and signed, immediate offset
+    HwSgnXferR,  // Halfword and signed, register offset
+    HwSgnXferI,  // Halfword and signed, immediate offset
     BlockXfer,
     Swap,
     SoftwareInt,
@@ -47,10 +47,10 @@ const INST_MATCH_ORDER: [Instruction; 17] = [
 ];
 
 impl Instruction {
-    fn pattern(&self) -> (u32, u32) {
+    fn pattern(self) -> (u32, u32) {
         use self::Instruction::*;
         #[cfg_attr(rustfmt, rustfmt_skip)]
-        match *self {
+        match self {
             BranchEx    => (0x0ffffff0, 0x012fff10),
             Branch      => (0x0e000000, 0x0a000000),
             DataProc0   => (0x0e000010, 0x00000000),
@@ -75,7 +75,7 @@ impl Instruction {
         for typ in INST_MATCH_ORDER.iter() {
             let (mask, test) = typ.pattern();
             if mask_match(inst, mask, test) {
-                return typ.clone();
+                return *typ;
             }
         }
         Instruction::Undefined
@@ -96,10 +96,7 @@ impl<T: MemoryUnit> Cpu<T> {
 
         debug!(
             "ARM: pc: {:#010x}, inst: {:#010x}, cond: {:#03x}, cflags: {:04b}",
-            pc,
-            inst,
-            cond,
-            cflags
+            pc, inst, cond, cflags
         );
 
         self.reg[reg::PC] = self.reg[reg::PC].wrapping_add(4);
@@ -118,7 +115,7 @@ impl<T: MemoryUnit> Cpu<T> {
                 let new_pc = self.reg[rn];
                 self.reg[reg::PC] = self.reg[rn] & !1u32;
                 // maybe switch to thumb mode
-                self.reg[reg::CPSR] = self.reg[reg::CPSR] | (bit(new_pc, 0) << cpsr::T);
+                self.reg[reg::CPSR] |= (bit(new_pc, 0) << cpsr::T);
             }
             Branch => {
                 let l = bit(inst, 24);
@@ -265,13 +262,9 @@ impl<T: MemoryUnit> Cpu<T> {
                 let rs = extract(inst, 8, 4) as Reg;
                 let rm = extract(inst, 0, 4) as Reg;
 
-                let res = self.reg[rm].wrapping_mul(self.reg[rs]).wrapping_add(
-                    if a == 0 {
-                        0
-                    } else {
-                        self.reg[rn]
-                    },
-                );
+                let res = self.reg[rm]
+                    .wrapping_mul(self.reg[rs])
+                    .wrapping_add(if a == 0 { 0 } else { self.reg[rn] });
 
                 self.reg[rd] = res;
 
@@ -594,19 +587,20 @@ mod test {
     macro_rules! emutest {
         ($name:ident, $mem_checks: expr) => {
             #[test]
-            fn $name () {
+            fn $name() {
                 use mmu::ram::{Ram, RamUnit};
 
                 use test;
                 test::setup();
 
-                let prog = include_bytes!(concat!("testdata/",
-                                                  stringify!($name),
-                                                  ".bin"));
-                let mut mmu = RamUnit { ram: Ram::new_with_data(0x1000, prog) };
+                let prog = include_bytes!(concat!("testdata/", stringify!($name), ".bin"));
+                let mut mmu = RamUnit {
+                    ram: Ram::new_with_data(0x1000, prog),
+                };
                 let mut cpu = super::Cpu::new(
                     Shared::new(&mut mmu),
-                    &[(0, reg::PC, 0x0u32), (0, reg::CPSR, 0x10)]);
+                    &[(0, reg::PC, 0x0u32), (0, reg::CPSR, 0x10)],
+                );
                 cpu.run();
 
                 let mem = &cpu.mmu;
@@ -614,7 +608,7 @@ mod test {
                     assert_eq!(val, mem.load32(addr), "addr: {:#010x}", addr);
                 }
             }
-        }
+        };
     }
 
     emutest!(emutest_arm0, [(0x100, 5), (0x104, 0)]);

@@ -2,7 +2,7 @@ use cpu::Cpu;
 use rom::GameRom;
 use shared::Shared;
 
-use super::{Gba, Mmu, MemoryRead};
+use super::{Gba, MemoryRead, Mmu};
 
 const BIOS_SIZE: u32 = 0x4000;
 
@@ -15,7 +15,7 @@ pub struct Bios<'a> {
 impl<'a> Bios<'a> {
     pub fn new(bios: GameRom) -> Self {
         Self {
-            bios: bios,
+            bios,
             cpu: Default::default(),
         }
     }

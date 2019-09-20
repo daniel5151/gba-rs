@@ -1,8 +1,8 @@
 use bit_util::*;
 
-use super::*;
 use super::reg::*;
 use super::util::*;
+use super::*;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Instruction {
@@ -53,10 +53,10 @@ const INST_MATCH_ORDER: [Instruction; 20] = [
 
 impl Instruction {
     #[inline]
-    fn pattern(&self) -> (u16, u16) {
+    fn pattern(self) -> (u16, u16) {
         use self::Instruction::*;
         #[cfg_attr(rustfmt, rustfmt_skip)]
-        match *self {
+        match self {
             Shifted     => (0xe000, 0x0000),
             AddSub      => (0xf800, 0x1800),
             ImmOp       => (0xe000, 0x2000),
@@ -84,7 +84,7 @@ impl Instruction {
         for typ in INST_MATCH_ORDER.iter() {
             let (mask, test) = typ.pattern();
             if mask_match(inst as u32, mask as u32, test as u32) {
-                return typ.clone();
+                return *typ;
             }
         }
         Instruction::Undefined
@@ -101,11 +101,7 @@ impl<T: MemoryUnit> Cpu<T> {
         let c = bit(cpsr, cpsr::C);
         let v = bit(cpsr, cpsr::V);
 
-        debug!(
-            "THM: pc: {:#010x}, inst: {:#06x}",
-            pc,
-            inst,
-        );
+        debug!("THM: pc: {:#010x}, inst: {:#06x}", pc, inst,);
 
         self.reg[reg::PC] = self.reg[reg::PC].wrapping_add(2);
 
@@ -119,7 +115,7 @@ impl<T: MemoryUnit> Cpu<T> {
                 let new_n = is_neg($res) as u32;
                 let new_flags = build_flags($new_v, $new_c, new_z, new_n);
                 self.reg[reg::CPSR] = set(self.reg[reg::CPSR], 28, 4, new_flags);
-            }
+            };
         };
         match inst_type {
             Shifted => {
@@ -275,8 +271,14 @@ impl<T: MemoryUnit> Cpu<T> {
                 let offset = self.reg[ro];
                 let addr = self.reg[rb].wrapping_add(offset);
                 match (l, b) {
-                    (0, 0) => { let v = self.reg[rd]; self.set32(addr, v) }
-                    (0, 1) => { let v = self.reg[rd]; self.mmu.set8(addr, v as u8) }
+                    (0, 0) => {
+                        let v = self.reg[rd];
+                        self.set32(addr, v)
+                    }
+                    (0, 1) => {
+                        let v = self.reg[rd];
+                        self.mmu.set8(addr, v as u8)
+                    }
                     (1, 0) => self.reg[rd] = self.load32(addr),
                     (1, 1) => self.reg[rd] = self.mmu.load8(addr) as u32,
                     _ => unreachable!(),
@@ -397,8 +399,8 @@ impl<T: MemoryUnit> Cpu<T> {
 
                 let addr = if l == 0 { post_addr } else { base };
 
-                let mut rem = rlist |
-                    if r == 1 {
+                let mut rem = rlist
+                    | if r == 1 {
                         1 << (if l == 0 { reg::LR } else { reg::PC })
                     } else {
                         0
@@ -411,8 +413,8 @@ impl<T: MemoryUnit> Cpu<T> {
                         let val = self.reg[reg];
                         self.set32(idx_addr, val);
                     } else {
-                        self.reg[reg] = self.load32(idx_addr) &
-                            if reg == reg::PC { !1 } else { !0 };
+                        self.reg[reg] =
+                            self.load32(idx_addr) & if reg == reg::PC { !1 } else { !0 };
                     }
 
                     rem -= 1 << reg;
@@ -472,9 +474,9 @@ impl<T: MemoryUnit> Cpu<T> {
                 let offset = extract(inst, 0, 11);
 
                 if h == 0 {
-                    self.reg[reg::LR] = pc.wrapping_add(4).wrapping_add(
-                        sign_extend(offset << 12, 23),
-                    );
+                    self.reg[reg::LR] = pc
+                        .wrapping_add(4)
+                        .wrapping_add(sign_extend(offset << 12, 23));
                 } else {
                     self.reg[reg::PC] = self.reg[reg::LR].wrapping_add(offset << 1);
                     self.reg[reg::LR] = pc.wrapping_add(2) | 1;
@@ -524,22 +526,25 @@ mod test {
     macro_rules! emutest {
         ($name:ident, $mem_checks: expr) => {
             #[test]
-            fn $name () {
+            fn $name() {
                 use mmu::ram::{Ram, RamUnit};
 
                 use test;
                 test::setup();
 
-                let prog = include_bytes!(concat!("testdata/",
-                                                  stringify!($name),
-                                                  ".bin"));
-                let mut mmu = RamUnit { ram: Ram::new_with_data(0x1000, prog) };
+                let prog = include_bytes!(concat!("testdata/", stringify!($name), ".bin"));
+                let mut mmu = RamUnit {
+                    ram: Ram::new_with_data(0x1000, prog),
+                };
                 let mut cpu = super::Cpu::new(
                     Shared::new(&mut mmu),
                     // Start at 0, with a stack pointer, and in thumb mode
-                    &[(0, reg::PC, 0x0u32),
-                      (0, reg::SP, 0x200),
-                      (0, reg::CPSR, 0x10)]);
+                    &[
+                        (0, reg::PC, 0x0u32),
+                        (0, reg::SP, 0x200),
+                        (0, reg::CPSR, 0x10),
+                    ],
+                );
                 cpu.set_thumb_mode(true);
                 cpu.run();
 
@@ -548,7 +553,7 @@ mod test {
                     assert_eq!(val, mem.load32(addr), "addr: {:#010x}", addr);
                 }
             }
-        }
+        };
     }
 
     emutest!(

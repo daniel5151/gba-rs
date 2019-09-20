@@ -2,15 +2,15 @@ use std::cell::RefCell;
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 
-use serde::{Serialize, Serializer, Deserialize, Deserializer};
+use serde::de::{Error, SeqAccess, Visitor};
 use serde::ser::SerializeTuple;
-use serde::de::{Visitor, Error, SeqAccess};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use shared::Shared;
 
 use io::IoReg;
 
-use mmu::{Mmu, MemoryRead};
+use mmu::{MemoryRead, Mmu};
 
 const MEM_SIZE: usize = 1024;
 
@@ -47,7 +47,9 @@ enum State {
 
 impl<'a> Default for Eeprom<'a> {
     fn default() -> Self {
-        Eeprom { ee: RefCell::new(Default::default()) }
+        Eeprom {
+            ee: RefCell::new(Default::default()),
+        }
     }
 }
 
@@ -114,10 +116,8 @@ impl<'a> EepromInner<'a> {
                         // FIXME: might be worth checking if the 0 is valid
                         self.addr &= 0x3ff;
                         true
-                    } else if self.bits == 8 && (dma_len == 9 || dma_len == 73) {
-                        true
                     } else {
-                        false
+                        self.bits == 8 && (dma_len == 9 || dma_len == 73)
                     };
                     if done {
                         self.bits = 0;
@@ -216,7 +216,8 @@ impl<'de> Deserialize<'de> for EepromMem {
             fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<EepromMem, A::Error> {
                 let mut mem: EepromMem = Default::default();
                 for i in 0..MEM_SIZE {
-                    mem[i] = seq.next_element()?
+                    mem[i] = seq
+                        .next_element()?
                         .ok_or_else(|| Error::invalid_length(i, &self))?;
                 }
                 Ok(mem)
